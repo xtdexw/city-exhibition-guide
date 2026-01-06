@@ -25,7 +25,12 @@
       <div class="key-status">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="星云 App ID">
-            {{ configStore.keys?.xingyunAppId || '未配置' }}
+            <template v-if="configStore.isTestMode">
+              <el-text type="info" disabled>*** 测试密钥已隐藏 ***</el-text>
+            </template>
+            <template v-else>
+              {{ configStore.keys?.xingyunAppId || '未配置' }}
+            </template>
           </el-descriptions-item>
           <el-descriptions-item label="星云 App Secret">
             {{ configStore.keys?.xingyunAppSecret ? '********' : '未配置' }}

@@ -347,6 +347,12 @@ async function speakText(text: string) {
 
 // 播放内容
 async function handlePlayContent(content: ContentItem) {
+  // 检查是否配置了密钥
+  if (!configStore.hasKeys) {
+    ElMessage.warning('请先配置API密钥才能使用对话功能')
+    return
+  }
+
   if (!isAvatarConnected.value) {
     ElMessage.warning('请先连接数字人')
     return
@@ -423,6 +429,12 @@ async function handleChatResponseComplete(text: string) {
 
 // 快捷操作
 async function handleQuickAction(action: any) {
+  // 检查是否配置了密钥
+  if (!configStore.hasKeys) {
+    ElMessage.warning('请先配置API密钥才能使用对话功能')
+    return
+  }
+
   if (!isAvatarConnected.value) {
     ElMessage.warning('请先连接数字人')
     return

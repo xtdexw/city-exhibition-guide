@@ -66,8 +66,8 @@
         v-model="inputMessage"
         type="textarea"
         :rows="2"
-        placeholder="向小星提问关于这座城市的问题..."
-        :disabled="isStreaming"
+        :placeholder="configStore.hasKeys ? '向小星提问关于这座城市的问题...' : '请先配置API密钥才能使用对话功能'"
+        :disabled="isStreaming || !configStore.hasKeys"
         @keydown.enter.exact="handleSend"
         @keydown.enter.shift.prevent="inputMessage += '\n'"
         class="message-input"
@@ -76,7 +76,7 @@
         <el-button
           type="primary"
           :loading="isStreaming"
-          :disabled="!inputMessage.trim()"
+          :disabled="!inputMessage.trim() || !configStore.hasKeys"
           @click="handleSend"
           class="send-button"
         >
@@ -100,6 +100,7 @@ import { ref, watch, nextTick, onUnmounted } from 'vue'
 import * as ElementPlusIcons from '@element-plus/icons-vue'
 import { conversationService, type ChatMessage } from '@/services/ConversationService'
 import { ElMessage } from 'element-plus'
+import { useConfigStore } from '@/stores/config'
 
 const { User, Avatar } = ElementPlusIcons
 
@@ -107,6 +108,7 @@ const emit = defineEmits<{
   responseComplete: [text: string]
 }>()
 
+const configStore = useConfigStore()
 const inputMessage = ref('')
 const messages = ref<ChatMessage[]>([])
 const isStreaming = ref(false)
@@ -130,6 +132,12 @@ watch(() => conversationService.getIsStreaming(), (streaming) => {
 async function handleSend() {
   const message = inputMessage.value.trim()
   if (!message) return
+
+  // 检查是否配置了密钥
+  if (!configStore.hasKeys) {
+    ElMessage.warning('请先配置API密钥才能使用对话功能')
+    return
+  }
 
   if (isStreaming.value) {
     ElMessage.warning('请等待当前对话完成')
