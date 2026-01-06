@@ -1,0 +1,124 @@
+[
+  {
+    "id": "history_001",
+    "title": "古城千年史",
+    "category": "history",
+    "tags": ["古代", "历史", "建城", "起源"],
+    "summary": "探索这座城市从古至今的发展历程，了解千年古城的起源与演变",
+    "content": "这座城市始建于两千多年前，最初作为一个军事要塞而建立。随着历史的变迁，它逐渐发展成为政治、经济、文化的中心。在古代，这里曾是重要的商贸集散地，连接南北的交通枢纽。历经多个朝代的更迭，城市保留了丰富的历史文化遗产，包括古城墙、古街道和历史建筑。这些建筑见证了城市的兴衰变迁，承载着深厚的历史记忆。",
+    "multimedia": {
+      "images": [
+        "/assets/images/history/ancient_city.jpg",
+        "/assets/images/history/city_wall.jpg"
+      ]
+    },
+    "duration": 180
+  },
+  {
+    "id": "history_002",
+    "title": "近代风云录",
+    "category": "history",
+    "tags": ["近代", "革命", "变迁", "改革"],
+    "summary": "回顾近代以来这座城市的重大历史事件和社会变革",
+    "content": "进入近代，这座城市经历了深刻的社会变革。从工业革命的兴起，到新文化运动的传播，再到改革开放的伟大实践，城市始终走在时代的前沿。无数革命先烈在这里留下了足迹，他们的精神激励着一代又一代人。城市博物馆收藏了大量珍贵文物，记录着这段波澜壮阔的历史。",
+    "multimedia": {
+      "images": [
+        "/assets/images/history/modern_history.jpg"
+      ]
+    },
+    "duration": 200
+  },
+  {
+    "id": "culture_001",
+    "title": "传统文化瑰宝",
+    "category": "culture",
+    "tags": ["传统", "民俗", "非遗", "艺术"],
+    "summary": "感受这座城市深厚的传统文化底蕴和独特的民俗风情",
+    "content": "这座城市拥有丰富的非物质文化遗产。传统手工艺如刺绣、陶瓷、木雕等世代相传，展现了精湛的技艺。民间艺术形式丰富多彩，包括地方戏曲、民间舞蹈、传统音乐等，每年都会举办盛大的文化节庆活动。这些传统文化不仅是城市的精神财富，也是中华文明的重要组成部分。",
+    "multimedia": {
+      "images": [
+        "/assets/images/culture/ handicraft.jpg",
+        "/assets/images/culture/opera.jpg"
+      ]
+    },
+    "duration": 150
+  },
+  {
+    "id": "culture_002",
+    "title": "现代文化创新",
+    "category": "culture",
+    "tags": ["现代", "创意", "艺术", "设计"],
+    "summary": "探索这座城市在现代文化领域的创新与发展",
+    "content": "作为文化创新的前沿阵地，这座城市孕育了众多现代艺术家和设计师。艺术区、创意园区遍布城市各个角落，传统与现代在这里碰撞出独特的火花。城市美术馆常年举办高水平展览，展示当代艺术的最新成果。文创产业蓬勃发展，成为推动城市文化软实力的重要力量。",
+    "multimedia": {
+      "images": [
+        "/assets/images/culture/art_district.jpg"
+      ]
+    },
+    "duration": 160
+  },
+  {
+    "id": "planning_001",
+    "title": "城市总体规划",
+    "category": "planning",
+    "tags": ["规划", "布局", "发展", "蓝图"],
+    "summary": "了解城市总体规划蓝图和发展战略",
+    "content": "根据最新版城市总体规划，城市将构建'一主多副'的空间布局结构。中心城区重点发展现代服务业，新城片区聚焦高新技术产业，生态保护区坚持绿色发展理念。到2035年，城市将建设成为国际化、绿色化、智能化的现代化都市。交通、教育、医疗等公共服务设施将全面提升，为市民提供更优质的生活环境。",
+    "multimedia": {
+      "charts": [
+        {
+          "type": "map",
+          "title": "城市空间布局规划"
+        }
+      ]
+    },
+    "duration": 190
+  },
+  {
+    "id": "planning_002",
+    "title": "智慧城市建设",
+    "category": "planning",
+    "tags": ["智慧", "科技", "数字化", "AI"],
+    "summary": "探索智慧城市建设的最新进展和未来展望",
+    "content": "这座城市正在全面推进智慧城市建设。通过大数据、人工智能、物联网等技术应用，城市治理变得更加高效智能。智能交通系统缓解了交通拥堵，智慧政务提升了办事效率，数字城管实现了精细化治理。未来，城市将打造'城市大脑'，整合各领域数据，实现全域感知、智能决策、协同指挥，为市民提供更便捷、更安全、更舒适的生活体验。",
+    "multimedia": {
+      "charts": [
+        {
+          "type": "line",
+          "title": "智慧城市发展指标"
+        }
+      ]
+    },
+    "duration": 170
+  },
+  {
+    "id": "landmark_001",
+    "title": "历史地标建筑",
+    "category": "landmark",
+    "tags": ["建筑", "古迹", "地标", "遗产"],
+    "summary": "探访城市著名的历史地标建筑",
+    "content": "这座城市的地标建筑见证了历史的沧桑。古塔矗立千年，是城市的象征；古城墙保存完好，诉说着往日的辉煌。这些历史建筑不仅具有极高的艺术价值，更是城市文化的重要载体。通过精心的保护和修缮，这些古迹得以完整地保存下来，向世人展示着城市深厚的历史底蕴。",
+    "multimedia": {
+      "images": [
+        "/assets/images/landmarks/ancient_tower.jpg",
+        "/assets/images/landmarks/city_wall.jpg"
+      ]
+    },
+    "duration": 140
+  },
+  {
+    "id": "landmark_002",
+    "title": "现代城市地标",
+    "category": "landmark",
+    "tags": ["现代", "建筑", "CBD", "地标"],
+    "summary": "了解现代化城市的标志性建筑",
+    "content": "现代地标建筑展现了城市的活力与未来。摩天大楼拔地而起，构成了壮丽的天际线。商业中心繁华热闹，购物中心、写字楼、酒店林立。这些现代建筑不仅是经济发展的象征，也是城市面貌的重要组成部分。它们采用先进的建筑技术和设计理念，体现了时代精神和创新追求。",
+    "multimedia": {
+      "images": [
+        "/assets/images/landmarks/skyline.jpg",
+        "/assets/images/landmarks/cbd.jpg"
+      ]
+    },
+    "duration": 130
+  }
+]
