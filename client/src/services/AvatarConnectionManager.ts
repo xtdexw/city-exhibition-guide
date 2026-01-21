@@ -10,66 +10,10 @@ export class AvatarConnectionManager {
   private currentStatus = ref<ConnectionStatus>(ConnectionStatus.IDLE)
   private statusCallbacks: Array<(status: ConnectionStatus) => void> = []
   private progressCallbacks: Array<(progress: number) => void> = []
-  private subtitleCallback: ((text: string) => void) | null = null  // 字幕回调
-  private subtitleTimer: number | null = null  // 字幕定时器
-  private subtitleQueue: string[] = []  // 字幕队列
   private reconnectAttempts = 0
   private maxReconnectAttempts = 3
 
   constructor() {}
-
-  /**
-   * 设置字幕回调
-   */
-  setSubtitleCallback(callback: (text: string) => void) {
-    this.subtitleCallback = callback
-  }
-
-  /**
-   * 清除字幕
-   */
-  clearSubtitle() {
-    this.clearSubtitleTimer()
-    if (this.subtitleCallback) {
-      this.subtitleCallback('')
-    }
-  }
-
-  /**
-   * 清理字幕定时器
-   */
-  private clearSubtitleTimer() {
-    if (this.subtitleTimer !== null) {
-      clearInterval(this.subtitleTimer)
-      this.subtitleTimer = null
-    }
-    this.subtitleQueue = []
-  }
-
-  /**
-   * 队列方式播放字幕
-   */
-  playSubtitles(sentences: string[], interval: number = 3000) {
-    this.clearSubtitleTimer()
-    this.subtitleQueue = [...sentences]
-    let index = 0
-
-    // 立即显示第一句
-    if (this.subtitleQueue.length > 0 && this.subtitleCallback) {
-      this.subtitleCallback(this.subtitleQueue[0])
-      index++
-    }
-
-    // 定时显示后续句子
-    this.subtitleTimer = setInterval(() => {
-      if (index < this.subtitleQueue.length && this.subtitleCallback) {
-        this.subtitleCallback(this.subtitleQueue[index])
-        index++
-      } else {
-        this.clearSubtitleTimer()
-      }
-    }, interval) as unknown as number
-  }
 
   /**
    * 获取当前连接状态
@@ -107,8 +51,14 @@ export class AvatarConnectionManager {
       return false
     }
 
+    // 检查重试次数（在设置状态前检查，避免无限重试）
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('[连接管理器] 已达到最大重试次数，停止连接')
+      this.setStatus(ConnectionStatus.ERROR)
+      return false
+    }
+
     this.setStatus(ConnectionStatus.CONNECTING)
-    this.reconnectAttempts = 0
 
     try {
       // 每次连接前彻底清理
@@ -146,6 +96,10 @@ export class AvatarConnectionManager {
           if (state === 'idle' || state === 'online') {
             renderCompleted = true
           }
+        },
+        onVoiceStateChange: (status: string) => {
+          // 语音状态变化（用于调试，字幕在 ChatPanel 中实时显示）
+          console.log('[连接管理器] 语音状态:', status)
         }
       })
 
@@ -198,29 +152,25 @@ export class AvatarConnectionManager {
           // 打招呼 - 使用简短文本
           const greetingText = '您好，我是智能讲解员小星，很高兴为您服务！'
 
-          // 更新字幕（分段显示，避免太长）
-          if (this.subtitleCallback) {
-            this.subtitleCallback(greetingText)
-          }
+          console.log('[连接管理器] 开始打招呼:', greetingText)
 
-          // 使用 speak（不等待完成）
+          // 设置朗读完成回调
+          this.avatarService.setSpeakCompleteCallback(() => {
+            console.log('[连接管理器] 开场白朗读完成')
+            // 设置最终状态
+            if (this.avatarService && this.avatarService.isInitialized() && this.isConnected()) {
+              try {
+                this.avatarService.setState(AvatarState.INTERACTIVE_IDLE)
+                console.log('[连接管理器] 已设置 INTERACTIVE_IDLE 状态')
+              } catch (error) {
+                console.warn('[连接管理器] 设置状态失败:', error)
+              }
+            }
+          })
+
+          // 使用 speak
           this.avatarService.speak(greetingText, true, true)
 
-          // 等待播报完成后清除字幕
-          setTimeout(() => {
-            if (this.subtitleCallback) {
-              this.subtitleCallback('')
-            }
-          }, 5000)
-
-          // 设置最终状态
-          if (this.avatarService && this.avatarService.isInitialized() && this.isConnected()) {
-            try {
-              this.avatarService.setState(AvatarState.INTERACTIVE_IDLE)
-            } catch (error) {
-              console.warn('[连接管理器] 设置状态失败:', error)
-            }
-          }
         } catch (error) {
           console.warn('[连接管理器] 打招呼失败:', error)
         }
@@ -237,9 +187,26 @@ export class AvatarConnectionManager {
         this.avatarService = null
       }
 
-      // 自动重试
+      // 检查是否是积分不足错误（不可恢复错误，不重试）
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('10003') || errorMessage.includes('积分不足')) {
+        console.error('[连接管理器] 积分不足，停止重试')
+        this.reconnectAttempts = this.maxReconnectAttempts // 标记为已达到最大重试次数
+        return false
+      }
+
+      // 检查是否是认证错误（不可恢复错误，不重试）
+      if (errorMessage.includes('10001') || errorMessage.includes('10002') ||
+          errorMessage.includes('认证') || errorMessage.includes('授权')) {
+        console.error('[连接管理器] 认证失败，停止重试')
+        this.reconnectAttempts = this.maxReconnectAttempts
+        return false
+      }
+
+      // 其他错误才自动重试
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++
+        console.log(`[连接管理器] 准备重试 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
         await this.delay(2000)
         return this.connect(config, containerId)
       }
@@ -259,12 +226,12 @@ export class AvatarConnectionManager {
     this.setStatus(ConnectionStatus.DISCONNECTING)
 
     try {
-      // 清理字幕和定时器
-      this.clearSubtitle()
-
       // 先销毁SDK
       this.avatarService.destroy()
       this.avatarService = null
+
+      // 重置重试次数，允许下次重新连接
+      this.reconnectAttempts = 0
 
       // 等待资源释放
       await this.delay(500)

@@ -202,9 +202,11 @@ class ConversationService {
 
             try {
               const parsed = JSON.parse(data)
-              if (parsed.text) {
-                fullText += parsed.text
-                onChunk(parsed.text)
+              // 支持 OpenAI 标准格式: { choices: [{ delta: { content: "..." } }] }
+              const content = parsed.choices?.[0]?.delta?.content
+              if (content) {
+                fullText += content
+                onChunk(content)
               }
             } catch (e) {
               // 忽略解析错误
@@ -220,7 +222,14 @@ class ConversationService {
 
       return fullText
     } catch (error) {
-      onError(error as Error)
+      // 如果是 AbortError，添加一个停止标记以保持对话历史平衡
+      if (error instanceof Error && error.name === 'AbortError') {
+        // 添加一个特殊标记，表示用户中止
+        this.addAssistantMessage('__STOPPED__')
+        console.log('[ConversationService] 用户中止对话，已添加停止标记')
+      } else {
+        onError(error as Error)
+      }
       throw error
     } finally {
       this.isStreaming.value = false

@@ -17,7 +17,13 @@
           </el-icon>
         </div>
         <div class="message-content">
-          <div class="message-bubble">
+          <!-- 停止标记的特殊显示 -->
+          <div v-if="msg.role === 'assistant' && msg.content === '__STOPPED__'" class="message-stopped">
+            <el-icon class="stopped-icon"><CircleClose /></el-icon>
+            <span>已停止生成</span>
+          </div>
+          <!-- 普通消息 -->
+          <div v-else class="message-bubble">
             {{ msg.content }}
           </div>
           <div class="message-time">
@@ -102,7 +108,7 @@ import { conversationService, type ChatMessage } from '@/services/ConversationSe
 import { ElMessage } from 'element-plus'
 import { useConfigStore } from '@/stores/config'
 
-const { User, Avatar } = ElementPlusIcons
+const { User, Avatar, CircleClose } = ElementPlusIcons
 
 const emit = defineEmits<{
   responseComplete: [text: string]
@@ -164,10 +170,20 @@ async function handleSend() {
       },
       // onError: 错误回调
       (error: Error) => {
+        // 过滤掉 AbortError，这是用户主动停止的正常行为
+        if (error.name === 'AbortError') {
+          console.log('用户停止了对话生成')
+          return
+        }
         ElMessage.error(`对话失败: ${error.message}`)
       }
     )
   } catch (error) {
+    // 过滤掉 AbortError
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('用户停止了对话生成')
+      return
+    }
     console.error('发送消息失败:', error)
   }
 }
@@ -201,6 +217,63 @@ function clearHistory() {
   ElMessage.success('对话历史已清空')
 }
 
+// 播放内容库内容
+async function playContent(title: string, summary: string) {
+  // 检查是否配置了密钥
+  if (!configStore.hasKeys) {
+    ElMessage.warning('请先配置API密钥才能使用对话功能')
+    return
+  }
+
+  if (isStreaming.value) {
+    ElMessage.warning('请等待当前对话完成')
+    return
+  }
+
+  const message = `请详细讲解一下${title}，包括${summary}`
+
+  inputMessage.value = ''
+  currentResponse.value = ''
+
+  try {
+    await conversationService.sendMessage(
+      message,
+      // onChunk: 流式回调
+      (chunk: string) => {
+        currentResponse.value += chunk
+        scrollToBottom()
+      },
+      // onComplete: 完成回调
+      (fullText: string) => {
+        currentResponse.value = fullText
+        scrollToBottom()
+        // 通知父组件对话完成，触发数字人语音播报
+        emit('responseComplete', fullText)
+      },
+      // onError: 错误回调
+      (error: Error) => {
+        // 过滤掉 AbortError，这是用户主动停止的正常行为
+        if (error.name === 'AbortError') {
+          console.log('用户停止了对话生成')
+          // 清理流式状态
+          currentResponse.value = ''
+          return
+        }
+        ElMessage.error(`对话失败: ${error.message}`)
+      }
+    )
+  } catch (error) {
+    // 过滤掉 AbortError
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('用户停止了对话生成')
+      // 清理流式状态
+      currentResponse.value = ''
+      return
+    }
+    console.error('播放内容失败:', error)
+  }
+}
+
 onUnmounted(() => {
   // 组件卸载时停止生成
   if (isStreaming.value) {
@@ -210,7 +283,8 @@ onUnmounted(() => {
 
 // 暴露方法
 defineExpose({
-  clearHistory
+  clearHistory,
+  playContent
 })
 </script>
 
@@ -235,6 +309,10 @@ defineExpose({
   display: flex;
   margin-bottom: 16px;
   animation: slideIn 0.3s ease;
+}
+
+.message-user {
+  flex-direction: row-reverse;
 }
 
 @keyframes slideIn {
@@ -281,6 +359,12 @@ defineExpose({
   word-wrap: break-word;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+.message-user .message-content {
+  margin-left: 0;
+  margin-right: 12px;
+  align-items: flex-end;
 }
 
 .message-user .message-bubble {
@@ -372,5 +456,23 @@ defineExpose({
   background: #FF4D4F;
   border: none;
   color: white;
+}
+
+/* 停止消息的特殊样式 */
+.message-stopped {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #FFF3E0;
+  border: 1px dashed #FF9800;
+  border-radius: 8px;
+  color: #FF9800;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.message-stopped .stopped-icon {
+  font-size: 16px;
 }
 </style>

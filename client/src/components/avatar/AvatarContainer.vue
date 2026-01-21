@@ -26,11 +26,6 @@
         style="width: 100%; height: 100%;"
       ></div>
 
-      <!-- 实时字幕 -->
-      <div v-if="currentSubtitle" class="subtitle-overlay">
-        {{ currentSubtitle }}
-      </div>
-
       <!-- 占位符 - 使用v-if完全移除DOM，不遮挡SDK背景 -->
       <div v-if="connectionStatus !== 'connected'" class="avatar-placeholder">
         <!-- 未连接状态 -->
@@ -94,23 +89,11 @@ const emit = defineEmits<{
   disconnected: []
   error: [error: Error]
   stateChange: [state: AvatarState]
-  subtitleUpdate: [text: string]
 }>()
 
 // 状态
 const connectionStatus = ref<ConnectionStatus>(ConnectionStatus.IDLE)
 const avatarState = ref<AvatarState>(AvatarState.IDLE)
-const currentSubtitle = ref('')
-
-// 暴露更新字幕的方法
-function updateSubtitle(text: string) {
-  currentSubtitle.value = text
-}
-
-// 清除字幕
-function clearSubtitle() {
-  currentSubtitle.value = ''
-}
 
 // 计算属性
 const statusClass = computed(() => {
@@ -187,13 +170,11 @@ const unregisterStatusCallback = avatarConnectionManager.onStatusChange((status)
 
     if (status === ConnectionStatus.CONNECTED) {
       emit('connected')
-      // 消息提示由父组件 Home.vue 统一处理
     } else if (status === ConnectionStatus.DISCONNECTED) {
       emit('disconnected')
-      // 消息提示由父组件 Home.vue 统一处理
-    } else if (status === ConnectionStatus.ERROR) {
-      emit('error', new Error('连接失败'))
     }
+    // 移除 ERROR 状态的自动触发，避免重复提示错误
+    // 错误提示由父组件 Home.vue 在 handleConnect 中统一处理
   })
 })
 
@@ -274,9 +255,7 @@ defineExpose({
   connect,
   disconnect,
   isConnected,
-  getConnectionStatus,
-  updateSubtitle,
-  clearSubtitle
+  getConnectionStatus
 })
 </script>
 
@@ -403,40 +382,6 @@ defineExpose({
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 实时字幕 */
-.subtitle-overlay {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  max-width: 85%;
-  padding: 8px 16px;
-  background: rgba(102, 126, 234, 0.9);
-  backdrop-filter: blur(8px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: center;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-  animation: fadeInUp 0.3s ease;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 /* 确保SDK背景容器正确显示 */

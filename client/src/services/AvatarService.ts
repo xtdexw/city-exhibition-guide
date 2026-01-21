@@ -63,6 +63,8 @@ export class AvatarService {
   private initError: string | null = null  // 记录初始化错误
   private speakResolveHook: (() => void) | null = null  // 说话完成回调钩子
   private speakRejectHook: ((error: Error) => void) | null = null  // 说话错误回调钩子
+  private speakBuffer: string = ''  // 语音缓冲区，用于流式累积文本
+  private speakCompleteCallback: (() => void) | null = null  // 朗读完成回调
 
   constructor(config: KeyConfig, containerId: string = 'avatar-container') {
     this.config = config
@@ -122,7 +124,12 @@ export class AvatarService {
         onMessage: (message: any) => {
           // 检测并记录关键错误
           if (message.code && message.code !== 0) {
-            console.error(`[Avatar] SDK错误: ${message.code} - ${message.message}`)
+            // 40006 是语音合成缓冲区超时警告，不影响最终结果，降级为 warn
+            if (message.code === 40006) {
+              console.warn(`[Avatar] SDK警告: ${message.code} - ${message.message}`)
+            } else {
+              console.error(`[Avatar] SDK错误: ${message.code} - ${message.message}`)
+            }
 
             // 关键错误码：10005-房间限流, 10003-请求失败, 10004-主动关闭
             if (message.code === 10005 || message.code === 10003) {
@@ -144,12 +151,13 @@ export class AvatarService {
 
         onStateRenderChange: callbacks?.onStateRenderChange,
 
-        onVoiceStateChange: (status: string) => {
+        onVoiceStateChange: ( status: string) => {
+          console.log('[Avatar] 语音状态变化:', status)
           callbacks?.onVoiceStateChange?.(status)
           // 监听语音播放状态，触发对应的回调
-          if (status === 'voice_start') {
+          if (status === 'start') {
             callbacks?.onSpeakStart?.()
-          } else if (status === 'voice_end') {
+          } else if (status === 'end') {
             callbacks?.onSpeakEnd?.()
             // 触发内部钩子
             if (this.speakResolveHook) {
@@ -157,10 +165,16 @@ export class AvatarService {
               this.speakResolveHook = null
               this.speakRejectHook = null
             }
+            // 触发朗读完成回调
+            if (this.speakCompleteCallback) {
+              console.log('[Avatar] 朗读完成，触发回调')
+              this.speakCompleteCallback()
+              this.speakCompleteCallback = null
+            }
           }
         },
 
-        enableLogger: true  // 开启SDK内部日志用于调试
+        enableLogger: false  // 关闭SDK内部日志，避免控制台刷屏
       })
     } catch (error) {
       console.error('[Avatar] 创建SDK实例失败:', error)
@@ -215,7 +229,7 @@ export class AvatarService {
   }
 
   /**
-   * 说话 - 控制数字人说话
+   * 说话 - 控制数字人说话（使用缓冲区机制）
    * @param text - 说话内容
    * @param isStart - 是否开始（true: 开始新话语，false: 继续当前话语）
    * @param isEnd - 是否结束（true: 结束话语，false: 未结束）
@@ -226,11 +240,22 @@ export class AvatarService {
     }
 
     try {
-      // 直接调用 SDK speak 方法
-      this.sdk.speak(text, isStart, isEnd)
+      // 如果是开始，清空缓冲区
+      if (isStart) {
+        this.speakBuffer = ''
+      }
 
+      // 累积到缓冲区
+      this.speakBuffer += text
+
+      // 立即调用SDK speak，传入累积的完整内容
+      console.log('[Avatar] Speaking:', text, 'isStart:', isStart, 'isEnd:', isEnd, 'buffer:', this.speakBuffer.substring(0, 50) + '...')
+      this.sdk.speak(this.speakBuffer, isStart, isEnd)
+
+      // 如果是结束，重置状态
       if (isEnd) {
         this.currentState = AvatarState.SPEAK
+        this.speakBuffer = ''  // 清空缓冲区
       }
     } catch (error) {
       console.error('[Avatar] speak error:', error)
@@ -372,6 +397,13 @@ export class AvatarService {
    */
   getInitError(): string | null {
     return this.initError
+  }
+
+  /**
+   * 设置朗读完成回调
+   */
+  setSpeakCompleteCallback(callback: () => void): void {
+    this.speakCompleteCallback = callback
   }
 
   /**

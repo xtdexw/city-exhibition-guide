@@ -15,16 +15,6 @@
         <el-tag v-else type="info">
           未配置
         </el-tag>
-        <!-- 快捷提问按钮 -->
-        <el-tooltip content="快捷提问" placement="bottom">
-          <el-button
-            type="primary"
-            @click="showQuickActions = true"
-            :icon="ChatDotRound"
-            circle
-          >
-          </el-button>
-        </el-tooltip>
         <!-- 使用说明按钮 -->
         <el-tooltip content="使用说明" placement="bottom">
           <el-button
@@ -63,7 +53,6 @@
             container-id="avatar-canvas"
             @connected="handleAvatarConnected"
             @disconnected="handleAvatarDisconnected"
-            @error="handleAvatarError"
           />
         </div>
       </div>
@@ -88,30 +77,6 @@
       </div>
     </div>
 
-    <!-- 快捷提问弹窗 -->
-    <el-dialog
-      v-model="showQuickActions"
-      title="⚡ 快捷提问"
-      width="700px"
-      center
-      :close-on-click-modal="true"
-    >
-      <div class="quick-actions-dialog">
-        <el-button
-          v-for="action in quickActions"
-          :key="action.key"
-          :type="action.type"
-          class="quick-action-btn"
-          @click="handleQuickAction(action); showQuickActions = false"
-        >
-          <el-icon class="action-icon">
-            <component :is="action.icon" />
-          </el-icon>
-          <span>{{ action.label }}</span>
-        </el-button>
-      </div>
-    </el-dialog>
-
     <!-- 使用说明弹窗 -->
     <el-dialog
       v-model="showHelp"
@@ -119,18 +84,17 @@
       width="500px"
     >
       <div class="help-content">
-        <el-timeline>
-          <el-timeline-item
-            v-for="(item, index) in helpSteps"
-            :key="index"
-            :timestamp="item.title"
-            placement="top"
-          >
-            <el-card>
-              <p>{{ item.content }}</p>
-            </el-card>
-          </el-timeline-item>
-        </el-timeline>
+        <div
+          v-for="(item, index) in helpSteps"
+          :key="index"
+          class="help-step-item"
+        >
+          <div class="step-number">{{ index + 1 }}</div>
+          <div class="step-content">
+            <div class="step-title">{{ item.title }}</div>
+            <div class="step-desc">{{ item.content }}</div>
+          </div>
+        </div>
       </div>
     </el-dialog>
   </div>
@@ -151,7 +115,7 @@ import { AvatarState } from '@/services/AvatarService'
 import type { ContentItem } from '@/types/content'
 import { optimizeTextForAvatar } from '@/services/ConversationService'
 
-const { Setting, Clock, Star, MapLocation, TrendCharts, ChatDotRound, QuestionFilled } = ElementPlusIcons
+const { Setting, QuestionFilled } = ElementPlusIcons
 
 const router = useRouter()
 const configStore = useConfigStore()
@@ -163,53 +127,18 @@ const dataDashboardRef = ref<InstanceType<typeof DataDashboard> | null>(null)
 
 // 状态
 const activeTab = ref('content')
-const showQuickActions = ref(false)
 const showHelp = ref(false)
 const isConnecting = ref(false)
 const isAvatarConnected = ref(false)
+let currentSpeakCallbackId = 0 // 朗读回调ID，用于防止旧回调干扰
 
 // Tab 切换处理
 function handleTabChange(tabName: string) {
   if (tabName === 'dashboard' && dataDashboardRef.value) {
-    // 切换到数据大屏时，触发图表 resize 确保正确渲染
-    // 图表已经在组件加载时自动初始化了
-    setTimeout(() => {
-      dataDashboardRef.value?.initCharts() // 这会触发 resize
-    }, 100)
+    // 使用懒加载激活，避免卡顿
+    dataDashboardRef.value?.activate()
   }
 }
-
-// 快捷操作按钮
-const quickActions = [
-  {
-    key: 'history',
-    label: '历史介绍',
-    type: 'primary',
-    icon: Clock,
-    question: '请简要介绍一下这座城市的历史'
-  },
-  {
-    key: 'culture',
-    label: '文化特色',
-    type: 'success',
-    icon: Star,
-    question: '这座城市有哪些独特的文化特色？'
-  },
-  {
-    key: 'planning',
-    label: '未来规划',
-    type: 'warning',
-    icon: MapLocation,
-    question: '这座城市未来的发展规划是什么？'
-  },
-  {
-    key: 'data',
-    label: '经济数据',
-    type: 'info',
-    icon: TrendCharts,
-    question: '介绍一下这座城市的经济发展情况'
-  }
-]
 
 // 使用说明步骤
 const helpSteps = [
@@ -252,17 +181,6 @@ async function handleConnect() {
     // 连接
     isConnecting.value = true
 
-    // 设置字幕回调，让连接管理器也能更新字幕
-    avatarConnectionManager.setSubtitleCallback((text: string) => {
-      if (avatarContainerRef.value) {
-        if (text) {
-          avatarContainerRef.value.updateSubtitle(text)
-        } else {
-          avatarContainerRef.value.clearSubtitle()
-        }
-      }
-    })
-
     const success = await avatarConnectionManager.connect(configStore.keys, 'avatar-canvas')
     isConnecting.value = false
     if (success) {
@@ -286,15 +204,9 @@ function handleAvatarDisconnected() {
   configStore.setConnectionStatus(false)
 }
 
-// 数字人连接错误
-function handleAvatarError(error: Error) {
-  isConnecting.value = false
-  ElMessage.error(`数字人错误: ${error.message}`)
-}
-
-// 数字人说话（根据 SDK 文档优化）
-async function speakText(text: string) {
-  console.log('[语音播报] 原始文本长度:', text?.length)
+// 数字人说话（使用 voice_end 事件检测完成）
+async function speakText(text: string): Promise<void> {
+  console.log('[语音播报] 文本长度:', text?.length)
 
   const avatarService = avatarConnectionManager.getService()
   if (!avatarService) {
@@ -302,47 +214,57 @@ async function speakText(text: string) {
     return
   }
 
-  if (!text) {
+  if (!text || text.trim().length === 0) {
     console.log('[语音播报] 没有有效内容')
     return
   }
 
+  // 递增回调ID，使旧的回调失效
+  currentSpeakCallbackId++
+
+  // 保存当前回调ID
+  const callbackId = currentSpeakCallbackId
+
   // 优化文本以适应数字人语音播报
   const optimizedText = optimizeTextForAvatar(text)
-  console.log('[语音播报] 优化后文本长度:', optimizedText.length)
+  console.log('[语音播报] 优化后文本长度:', optimizedText.length, '回调ID:', callbackId)
 
-  // 分段字幕显示
-  const sentences = optimizedText.split(/([。！？.!?])/).filter(s => s.trim())
-  console.log('[语音播报] 分段数量:', sentences.length)
+  // 返回一个 Promise，在朗读完成时 resolve
+  return new Promise<void>((resolve) => {
+    // 设置朗读完成回调
+    avatarService.setSpeakCompleteCallback(() => {
+      // 检查回调是否有效（防止旧回调干扰）
+      if (callbackId !== currentSpeakCallbackId) {
+        console.log('[语音播报] 忽略旧回调，ID:', callbackId, '当前ID:', currentSpeakCallbackId)
+        return
+      }
 
-  if (sentences.length === 0) {
-    console.log('[语音播报] 没有有效段落')
-    return
-  }
+      console.log('[语音播报] 朗读完成，回调ID:', callbackId)
+      // 恢复到交互待机状态
+      try {
+        avatarService.setState(AvatarState.INTERACTIVE_IDLE)
+      } catch (error) {
+        console.warn('[语音播报] 设置状态失败:', error)
+      }
+      resolve()
+    })
 
-  // 计算字幕间隔（根据句子平均长度动态调整）
-  const avgSentenceLength = sentences.reduce((sum, s) => sum + s.length, 0) / sentences.length
-  // 每个字符约需 150ms，加上基础时间 500ms
-  const subtitleInterval = Math.max(2000, avgSentenceLength * 150 + 500)
-  console.log('[语音播报] 字幕间隔:', subtitleInterval, 'ms')
+    // 设置数字人为倾听状态
+    avatarService.setState(AvatarState.LISTEN)
 
-  // 使用连接管理器的队列方式播放字幕
-  avatarConnectionManager.playSubtitles(sentences, subtitleInterval)
+    // 短暂延迟后开始朗读
+    setTimeout(() => {
+      // 再次检查回调是否有效
+      if (callbackId !== currentSpeakCallbackId) {
+        console.log('[语音播报] 朗读已取消，回调ID:', callbackId)
+        return
+      }
 
-  // 根据 SDK 文档：一次性传入完整文本给SDK（保证语音流畅）
-  // isStart = true, isEnd = true 表示这是完整的一段话
-  avatarService.speak(optimizedText, true, true)
-
-  console.log('[语音播报] 已发送文本到数字人')
-
-  // 等待播报完成（根据文本长度估算时间）
-  const estimatedDuration = Math.max(5000, optimizedText.length * 150)
-  await new Promise(resolve => setTimeout(resolve, estimatedDuration))
-
-  // 清除字幕
-  avatarConnectionManager.clearSubtitle()
-
-  console.log('[语音播报] 播报完成')
+      // 一次性传入完整文本
+      avatarService.speak(optimizedText, true, true)
+      console.log('[语音播报] 已发送文本到数字人，回调ID:', callbackId)
+    }, 300)
+  })
 }
 
 // 播放内容
@@ -366,32 +288,9 @@ async function handlePlayContent(content: ContentItem) {
     avatarService.setState(AvatarState.LISTEN)
   }
 
-  try {
-    const { conversationService } = await import('@/services/ConversationService')
-
-    let currentResponse = ''
-
-    await conversationService.sendMessage(
-      `请详细讲解一下${content.title}，包括${content.summary}`,
-      (chunk: string) => {
-        currentResponse += chunk
-      },
-      (fullText: string) => {
-        currentResponse = fullText
-      },
-      (error: Error) => {
-        ElMessage.error(`对话失败: ${error.message}`)
-        avatarService?.setState(AvatarState.IDLE)
-      }
-    )
-
-    if (avatarService && currentResponse) {
-      await speakText(currentResponse)
-      avatarService.setState(AvatarState.INTERACTIVE_IDLE)
-    }
-  } catch (error) {
-    console.error('对话失败:', error)
-    ElMessage.error('对话失败，请重试')
+  // 调用 ChatPanel 的 playContent 方法，会自动处理流式显示和朗读
+  if (chatPanelRef.value) {
+    chatPanelRef.value.playContent(content.title, content.summary)
   }
 }
 
@@ -424,56 +323,6 @@ async function handleChatResponseComplete(text: string) {
     console.log('[对话完成] 语音播报完成')
   } catch (error) {
     console.error('[对话完成] 语音播报失败:', error)
-  }
-}
-
-// 快捷操作
-async function handleQuickAction(action: any) {
-  // 检查是否配置了密钥
-  if (!configStore.hasKeys) {
-    ElMessage.warning('请先配置API密钥才能使用对话功能')
-    return
-  }
-
-  if (!isAvatarConnected.value) {
-    ElMessage.warning('请先连接数字人')
-    return
-  }
-
-  // 不切换Tab，保持在当前页面
-
-  // 设置数字人为倾听状态
-  const avatarService = avatarConnectionManager.getService()
-  if (avatarService) {
-    avatarService.setState(AvatarState.LISTEN)
-  }
-
-  try {
-    const { conversationService } = await import('@/services/ConversationService')
-
-    let currentResponse = ''
-
-    await conversationService.sendMessage(
-      action.question,
-      (chunk: string) => {
-        currentResponse += chunk
-      },
-      (fullText: string) => {
-        currentResponse = fullText
-      },
-      (error: Error) => {
-        ElMessage.error(`对话失败: ${error.message}`)
-        avatarService?.setState(AvatarState.IDLE)
-      }
-    )
-
-    if (avatarService && currentResponse) {
-      await speakText(currentResponse)
-      avatarService.setState(AvatarState.INTERACTIVE_IDLE)
-    }
-  } catch (error) {
-    console.error('对话失败:', error)
-    ElMessage.error('对话失败，请重试')
   }
 }
 </script>
@@ -566,7 +415,7 @@ async function handleQuickAction(action: any) {
 
 /* 右侧面板 - 对话 */
 .right-panel {
-  flex: 0 0 380px;
+  flex: 0 0 700px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -641,61 +490,52 @@ async function handleQuickAction(action: any) {
   height: 100%;
 }
 
-/* 快捷提问弹窗样式 */
-.quick-actions-dialog {
-  display: flex;
-  gap: 10px;
+/* 使用说明样式 */
+.help-content {
   padding: 0;
 }
 
-.quick-action-btn {
+.help-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.help-step-item:last-child {
+  border-bottom: none;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.step-content {
   flex: 1;
   min-width: 0;
-  height: 40px !important;
-  padding: 0 12px !important;
-  font-size: 14px !important;
-  font-weight: 500;
-  border-radius: 8px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  transition: all 0.2s ease;
 }
 
-/* 覆盖 Element Plus 按钮内部样式 */
-.quick-action-btn :deep(.el-icon) {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.quick-action-btn :deep(span) {
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.quick-action-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* 使用说明样式 */
-.help-content {
-  padding: 8px 0;
-}
-
-.help-content :deep(.el-timeline-item__timestamp) {
+.step-title {
   font-weight: 600;
   color: #667eea;
+  margin-bottom: 6px;
+  font-size: 15px;
 }
 
-.help-content :deep(.el-card) {
-  margin-bottom: 0;
-}
-
-.help-content p {
-  margin: 0;
-  line-height: 1.8;
+.step-desc {
   color: #555;
+  line-height: 1.6;
+  font-size: 14px;
 }
 </style>

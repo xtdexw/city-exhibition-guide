@@ -24,6 +24,12 @@
         <h3 class="chart-title">科技创新指数</h3>
         <div ref="innovationChartRef" class="chart-container"></div>
       </div>
+
+      <!-- 发展质量 -->
+      <div class="chart-card">
+        <h3 class="chart-title">城市发展质量</h3>
+        <div ref="qualityChartRef" class="chart-container"></div>
+      </div>
     </div>
   </div>
 </template>
@@ -36,13 +42,13 @@ const populationChartRef = ref<HTMLElement>()
 const gdpChartRef = ref<HTMLElement>()
 const industryChartRef = ref<HTMLElement>()
 const innovationChartRef = ref<HTMLElement>()
+const qualityChartRef = ref<HTMLElement>()
 
 let charts: echarts.ECharts[] = []
 let isInitialized = false
 
 onMounted(() => {
-  // 立即初始化图表，使用固定尺寸避免 display:none 导致的零尺寸问题
-  initCharts()
+  // 不在 onMounted 时初始化，等待 activate() 调用
 })
 
 onUnmounted(() => {
@@ -57,30 +63,66 @@ function disposeCharts() {
 }
 
 function handleResize() {
-  charts.forEach(chart => chart.resize())
+  charts.forEach(chart => {
+    try {
+      chart.resize()
+    } catch (e) {
+      // 忽略 resize 错误
+    }
+  })
 }
 
-// 初始化图表 - 现在支持在隐藏状态下初始化
+// 初始化图表
 function initCharts() {
   if (isInitialized) {
-    // 如果已经初始化，只触发 resize
-    handleResize()
     return
   }
 
-  // 使用 nextTick 确保 DOM 完全渲染后再初始化图表
   nextTick(() => {
-    // 使用 requestAnimationFrame 确保 CSS 已应用
     requestAnimationFrame(() => {
       createCharts()
-      // 初始化后立即触发一次 resize，确保图表正确渲染
+
+      // 初始化后触发 resize
       setTimeout(() => {
-        charts.forEach(chart => chart.resize())
+        handleResize()
       }, 100)
     })
+    window.addEventListener('resize', handleResize)
+    isInitialized = true
   })
-  window.addEventListener('resize', handleResize)
-  isInitialized = true
+}
+
+// 公开方法：切换 tab 时调用
+function activate() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      if (!isInitialized) {
+        // 第一次：初始化
+        initCharts()
+      } else {
+        // 后续：检查并重建图表
+        let needRecreate = false
+
+        // 检查图表是否有效
+        charts.forEach(chart => {
+          try {
+            chart.resize()
+          } catch (e) {
+            needRecreate = true
+          }
+        })
+
+        if (needRecreate || charts.length === 0) {
+          // 重建图表
+          disposeCharts()
+          initCharts()
+        } else {
+          // 只需 resize
+          handleResize()
+        }
+      }
+    })
+  })
 }
 
 function createCharts() {
@@ -459,11 +501,92 @@ function createCharts() {
     })
     charts.push(chart)
   }
+
+  // 城市发展质量仪表盘图
+  if (qualityChartRef.value) {
+    const chart = echarts.init(qualityChartRef.value)
+    chart.setOption({
+      ...commonOption,
+      series: [{
+        type: 'gauge',
+        startAngle: 180,
+        endAngle: 0,
+        min: 0,
+        max: 100,
+        radius: '80%',
+        center: ['50%', '65%'],
+        splitNumber: 10,
+        axisLine: {
+          lineStyle: {
+            width: 20,
+            color: [
+              [0.3, '#ff6b6b'],
+              [0.7, '#feca57'],
+              [1, '#1dd1a1']
+            ]
+          }
+        },
+        pointer: {
+          icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
+          length: '12%',
+          width: 20,
+          offsetCenter: [0, '-60%'],
+          itemStyle: {
+            color: 'auto'
+          }
+        },
+        axisTick: {
+          length: 12,
+          lineStyle: {
+            color: 'auto',
+            width: 2
+          }
+        },
+        splitLine: {
+          length: 20,
+          lineStyle: {
+            color: 'auto',
+            width: 5
+          }
+        },
+        axisLabel: {
+          color: '#606266',
+          fontSize: 14,
+          distance: -60,
+          formatter: function (value: number) {
+            return value.toFixed(0)
+          }
+        },
+        title: {
+          offsetCenter: [0, '20%'],
+          fontSize: 20,
+          color: '#303133',
+          fontWeight: 'bold'
+        },
+        detail: {
+          fontSize: 30,
+          offsetCenter: [0, '0%'],
+          valueAnimation: true,
+          formatter: function (value: number) {
+            return Math.round(value) + '分'
+          },
+          color: '#667eea',
+          fontWeight: 'bold'
+        },
+        data: [{
+          value: 85,
+          name: '发展质量'
+        }]
+      }]
+    })
+    charts.push(chart)
+  }
 }
 
 // 暴露方法给父组件
 defineExpose({
-  initCharts
+  initCharts,
+  activate // 新增：懒加载激活方法
 })
 </script>
 

@@ -136,7 +136,8 @@ router.post('/stream', async (req, res, next) => {
     await modelScopeService.textChat(
       messages,
       (chunk) => {
-        res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`)
+        // 使用 OpenAI 标准格式
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`)
       }
     )
 
