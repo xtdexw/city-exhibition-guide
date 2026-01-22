@@ -6,8 +6,8 @@ const STORAGE_KEY = 'city_exhibition_keys'
 
 // 测试密钥
 const TEST_KEYS: KeyConfig = {
-  xingyunAppId: 'd0e50f1b79104ff2985279f094fca361',
-  xingyunAppSecret: '93e84bcfebbc468e94f41611b4127899',
+  xingyunAppId: 'cc36cf95b26844039fa0f49f9a3b2a22',
+  xingyunAppSecret: 'fbb35216a10247038c7e80d2dbf66bb0',
   modelscopeApiKey: 'ms-110b80f9-ae5a-4590-91d4-08bc8e54603a',
   isTestMode: true
 }
