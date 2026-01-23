@@ -65,11 +65,10 @@ cd city-exhibition-guide
 # 2. 安装所有依赖
 npm run install:all
 
-# 3. 配置环境变量
-# 复制 server/.env.example 并填写魔搭API密钥
+# 3. 复制后端环境变量（已包含测试密钥）
 cp server/.env.example server/.env
 
-# 4. 启动开发服务器
+# 4. 启动开发服务器（前端+后端同时启动）
 npm run dev
 ```
 
@@ -77,17 +76,31 @@ npm run dev
 
 ### 环境变量配置
 
-**后端 (server/.env)**:
+> **快速体验**: 项目已包含测试密钥，可以直接运行体验。测试密钥有调用额度限制，正式使用请替换为自己的密钥。
 
-```env
-MODELSCOPE_API_KEY=your_api_key_here
-PORT=3000
+**后端配置 (server/.env)** - 需要复制配置文件：
+
+```bash
+cp server/.env.example server/.env
 ```
 
-**前端 (client/.env)**:
-
+配置内容：
 ```env
-VITE_API_BASE_URL=http://localhost:3000
+# 测试密钥（有额度限制）
+MODELSCOPE_API_KEY=ms-110b80f9-ae5a-4590-91d4-08bc8e54603a
+PORT=3001
+```
+
+**申请自己的密钥**: 访问 [魔搭社区](https://modelscope.cn/my/myaccesstoken) 获取 API Key
+
+**前端配置** - 无需配置文件：
+
+- 星云密钥已内置在代码中，启动后在设置页点击"使用测试密钥"即可
+- API 地址已默认配置为 `http://localhost:3001`
+
+如需自定义，可创建 `client/.env` 文件：
+```env
+VITE_API_BASE_URL=http://localhost:3001
 VITE_XINGYUN_GATEWAY=https://nebula-agent.xingyun3d.com/user/v1/ttsa/session
 ```
 
@@ -240,7 +253,7 @@ cd ..
 npm start
 ```
 
-服务器将运行在 http://localhost:3000
+服务器将运行在 http://localhost:3001
 
 ### Docker 部署（可选）
 
@@ -252,7 +265,7 @@ COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
 RUN npm run build
-EXPOSE 3000
+EXPOSE 3001
 CMD ["npm", "start"]
 ```
 
@@ -266,13 +279,60 @@ A: 请检查：
 2. 网络连接是否正常
 3. 浏览器控制台是否有错误信息
 
+### Q: AI 对话显示 "Failed to fetch"？
+
+A: 这是最常见的问题，请按以下步骤排查：
+
+**步骤 1：检查后端服务是否运行**
+```bash
+# 在浏览器访问健康检查接口
+http://localhost:3001/health
+
+# 或使用 curl 命令
+curl http://localhost:3001/health
+```
+
+如果返回 `{"status":"ok"}`，说明后端正常运行。
+
+**步骤 2：检查前端环境变量**
+1. 打开浏览器控制台 (F12)
+2. 在 Console 中输入：
+```javascript
+import.meta.env.VITE_API_BASE_URL
+```
+3. 确认输出是 `http://localhost:3001`
+
+**步骤 3：检查浏览器 Network 标签**
+1. 打开浏览器开发者工具 (F12)
+2. 切换到 Network 标签
+3. 发送一条测试消息
+4. 查看失败的请求 URL 和端口号
+
+**步骤 4：重启服务**
+修改 `.env` 文件后，必须重启服务才能生效：
+```bash
+# 停止当前服务 (Ctrl+C)
+# 重新启动
+npm run dev
+```
+
+**步骤 5：检查端口占用**
+```bash
+# Windows
+netstat -ano | findstr :3001
+
+# Mac/Linux
+lsof -i :3001
+```
+
 ### Q: AI 对话没有响应？
 
 A: 请确认：
 
-1. 后端服务是否正常运行
-2. 魔搭 API 密钥是否正确
-3. 查看"Network"标签页检查 API 请求
+1. 后端服务是否正常运行（访问 http://localhost:3001/health）
+2. 魔搭 API 密钥是否正确配置在 `server/.env`
+3. 查看"Network"标签页检查 API 请求状态码
+4. 查看后端控制台是否有错误日志
 
 ### Q: 如何添加新的讲解内容？
 
